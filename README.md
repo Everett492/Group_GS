@@ -44,7 +44,7 @@
 [Training Your First Model](https://docs.nerf.studio/quickstart/first_nerf.html)
 
 1. Train and run viewer:
-    - Test dataset downloading: original order `ns-download-data nerfstudio --capture-name=poster` is not effective. I've uploaded the dataset to github.
+    - Test dataset downloading: original order `ns-download-data nerfstudio --capture-name=poster` is not effective. I've uploaded the dataset to github. [Dataset](https://github.com/Everett492/Group_GS/tree/main/nerf_first_model/data/nerfstudio/poster)
 
 ## NeRF: Neural Radiance Field
 
