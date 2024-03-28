@@ -45,6 +45,27 @@
 
 1. Train and run viewer:
     - Test dataset downloading: original order `ns-download-data nerfstudio --capture-name=poster` is not effective. I've uploaded the dataset to github. [Dataset](https://github.com/Everett492/Group_GS/tree/main/nerf_first_model/data/nerfstudio/poster)
+    - Train model: `ns-train nerfacto --data data/nerfstudio/poster`
+    ![Training](./image_note/First_Training.png)
+2. Use pretrained model:
+    - Load:
+
+        ```text
+        ns-train nerfacto --data data/nerfstudio/poster --load-dir {outputs/.../nerfstudio_models}
+        ```
+
+    - Visualize existing run:
+
+        ```text
+        ns-viewer --load-config {outputs/.../config.yml}
+        ```
+
+3. Export results
+    - Rendering vedio:
+        - Add camera --> Generate command --> input --> success
+        - When testing in environment `nerfstudio`, problem occurred: `Could not find ffmpeg. Please install ffmpeg`. Using `pip install ffmpeg` didn't work. Use `sudo apt install ffmpeg` instead.
+    - Point cloud: `ply` file
+    - Mesh: `obj` file
 
 ## NeRF: Neural Radiance Field
 
