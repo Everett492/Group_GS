@@ -69,7 +69,7 @@
 
 ## NeRF: Neural Radiance Field
 
-### Theoretical Part
+### Original NeRF
 
 1. Original paper: [NeRF: Representing Scenes as Neural Radiance Fields for View Synthesis](https://arxiv.org/pdf/2003.08934.pdf)
     - Inrtroduction:
@@ -115,8 +115,8 @@
         ![NeRF Loss Function](./image_note/NeRF_Loss_Function.png)
 2. Camera parameters and coordinate system transformations
     - Reference: [Code Interpretation](https://zhuanlan.zhihu.com/p/593204605/)
-    - Internal and external matrix of the camera:
-        - External matrix:
+    - Internal and external parameters of the camera:
+        - External parameters:
             - Shape: a 4x4 matrix `M`, or world-to-camera matrix.
             - Useage: Transforms a point `P(world) = [x, y, z, 1]` in the world coordinate system to a point `P(camera) = MP(world)` in the camera coordinate system.
             - `M^(-1)`: c2w matrix:
@@ -128,7 +128,7 @@
                        [  0,   0,   0,  1]
             ```
 
-        - Internal matrix:
+        - Internal parameters:
             - Usage: mapping 3D coordinates in the camera's coordinate system to the 2D image plane.
             - Take pinhhole camera as an example:
 
@@ -151,7 +151,7 @@
                 ])
             ```
 
-            - Abtaining camera matrix:
+            - Abtaining camera parameters:
                 - Synthesized data
                 - Real data use COLMAP and [img2poses.py](https://github.com/Fyusion/LLFF/blob/master/imgs2poses.py) by NeRF's author.
                 - `pose_bounds.npy`: `load_llff.py` will read the `poses_bounds.npy` file directly to get the camera parameters. `poses_bounds.npy` is an `Nx17` matrix, where N is the number of images. There are 17 parameters per image. The first 15 of these parameters can be rearranged into a 3x5 matrix form `[R T [H W f].transpose()]`. The last two parameters, `near` and `far` are used to represent to bounds of the scene.
@@ -172,9 +172,98 @@
                     return rays_o, rays_d
                 ```
 
-3. Code of the basic model:
+3. Model components of nerfstudio: [model_components](https://github.com/nerfstudio-project/nerfstudio/blob/main/nerfstudio/model_components), [official document](https://docs.nerf.studio/nerfology/model_components)
+    - Camera Models:
+        - Perspective camera model
+        - Fisheye camera model
+        - Equirectangular/spherical camera model
+        - Distortion parameters: modeling the distortion caused by the lenses may be benificial.
+    - Sample Representation
+    - Ray Samplers: decide how to place the samples along a ray.
+        - Stratified sampling
+        - Spaced samplers
+        - PDF(probability distribution function) samplers
+    - Spatial Distortions
+    - Field Encoders
+        - NeRF positional encoding
+        - Random fourier feature encoding
+        - Hash encoding
+        - Spherical harmonic encoding
+4. Basic model by nerfstudio: [basic_model.py](https://github.com/nerfstudio-project/nerfstudio/blob/main/nerfstudio/models/base_model.py)
+    - `class ModelConfig`: model configuration.
+    - `class Model`: model defination
+        - `__init__(self, config, scene_box, num_train_data, **kwards)`
+        - `device(self)`: return the device the model is on.
+        - `get_training_modules(self)`: returns a list of callbacks that run functions at the specified training iterations.
+        - `populate_modules(self)`: set the necessary optional modules that are common among many networks.
+        - `@abstractmethod get_param_groups(self) -> Dict[str, List[Parameter]]`: obtain the parameter groups for optimizer.
+        - `@abstractmethod get_outputs(self, raybundle: Union[RayBundle, Cameras]) -> Dict[str, Union[torch.Tensor, List]]`: takes in a Ray Bundle and returns a dictionary of outputs.
+        - `forward(self, ray_bundle: Union[RayBundle, Cameras]) -> Dict[str, Union[torch.Tensor, List]]`: run foward starting with a ray bundle. This outputs different things depending on the configuration of the model and whether or not the batch is provided (whether or not we are training basically).
+        - `get_metrics_dict(self, outputs, batch) -> Dict[str, torch.Tensor]`: compute and return metrics. `outputs` is the output to compute loss dict to and `batch` is the ground truth batch corresponding to `outputs`.
+        - `@abstractmethod get_loss_dict(self, outputs, batch, metrics_dict=None) -> Dict[str, torch.Tensor]`: compute and returns the losses dict. `metrics_dict` is the dictionary of metrics, some of which can be used for loss.
+        - `@torch.no_grad get_outputs_for_camera(self, camera: Cameras, obb_box: Optional[OrientedBox] = None) -> Dict[str, torch.Tensor]`: takes in a camera, generates the raybundle, and compute the output of the model.
+        - `@torch.no_grad() get_outputs_for_camera_ray_bundle(self, camera_ray_bundle: RayBundle) -> Dict[str, torch.Tensor]`: takes in camera parameters and compute the output of the model.
+        - `get_rgba_image(self, outputs: Dict[str, torch.Tensor], output_name: str = "rgb") -> torch.Tensor`: return the RGBA image from the outputs of the model.
+        - `@abstractmethod get_image_metrics_and_images(self, outputs: Dict[str, torch.Tensor], batch: Dict[str, torch.Tensor]) -> Tuple[Dict[str, float], Dict[str, torch.Tensor]]`: writes the test image outputs.
+        - `load_model(self, loaded_state: Dict[str, Any]) -> None`: load the checkpoint from the given path.
+        - `update_to_step(self, setp: int) -> None`: called when loading a model from a checkpoint. Sets any model parameters that change over training to the correct value, based on the training step of the checkpoint.
+5. `NeRF` by nerfstudio:
+    - Goal: optimize a volumetric repersentation of a scene that can be rendered from novel viewpoints. This representation is optimized from a set of images and associated camera poses.
+    - Pipeline:
 
-    - Code: [basic_model.py](https://github.com/nerfstudio-project/nerfstudio/blob/main/nerfstudio/models/base_model.py)
-    - Model defination:
+        ![NeRF Pipeline](./image_note/NeRF_Pipeline.png)
+
+        - Field repersentation: For each point in space, the NeRF represents a view dependent radiance. Each point has a density and a view dependent color that cahnges depending on the angle the point is viewed.
+
+            ![NeRF Field Representation](./image_note/NeRF_Field.png)
+
+        - Positional encoding
+
+            ```python
+            from nerfstudio.field_components.encodings import NeRFEncoding
+
+            pos_enc = NeRFEncoding(in_dim=3, num_frequencies=10, min_freq_exp=0.0, max_freq_exp=8.0, include_input=True)
+            dis_enc = NeRFEncoding(in_dim=3, num_frequencies=4, min_freq_exp=0.0, max_freq_exp=8.0, include_input=True)
+            ```
+
+        - Rendering: To render an image of the space, we are going to project a ray from the target pixel and evaluate points along the ray relying on classic volumetric rendering techniques to conposite the points into a predicted color.
+
+            ```python
+            from nerfstudio.model_components.renderers import RGBRenderer
+
+            renderer_rgb = RGBRenderer(background_color=colors.WHITE)
+            field_outputs = field_coarse.foward(ray_samples)
+            weights = ray_samples.get_weights(field_outputs[FieldHeadNames.DENSITY])
+            rgb = renderer_rgb(rgb=field_outputs[FieldHeadNames.RGB], weights=weights)
+            ```
+
+        - Sampling: In NeRF we take advantage of a hierarchical sampling scheme that first uses a uniform sampler and is followed by a PDF sampler.
+
+            ```python
+            from nerfstudio.model_components.ray_samplers import PDFSampler, UniformSampler
+
+            sampler_uniform = UniformSampler(num_samples=num_coarse_samples)
+            ray_samples_uniform = sampler_uniform(ray_bundle)
+
+            sampler_pdf = PDFSampler(num_samples=num_importance_samples)
+            field_outputs_coarse = field_coarse.forward(ray_samples_uniform)
+            weights_coarse = ray_samples_uniform.get_weights(field_outputs_coarse[FieldHeadNames.DENSITY])
+            ray_samples_pdf = sampler_pdf(ray_bundle, ray_samples_uniform, weights_coarse)
+            ```
+
+6. Other reference: [NeRF_PyTorch](https://github.com/yenchenlin/nerf-pytorch)
 
 ### NeRFactor
+
+1. Code: [nerfacto.py](https://github.com/nerfstudio-project/nerfstudio/blob/main/nerfstudio/models/nerfacto.py)
+2. Pipeline:
+
+    ![Nerfacto Pipeline](./image_note/Nerfacto_Pipeline.png)
+
+    - Pose refinement
+    - Piecewise sampler
+    - Proposal sampler
+    - Density field
+    - Nerfacto field
+
+        ![Nerfacto Field](./image_note/Nerfacto_Field.png)
