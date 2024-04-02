@@ -44,7 +44,7 @@
 [Training Your First Model](https://docs.nerf.studio/quickstart/first_nerf.html)
 
 1. Train and run viewer:
-    - Test dataset downloading: original order `ns-download-data nerfstudio --capture-name=poster` is not effective. I've uploaded the dataset to github. [Dataset](https://github.com/Everett492/Group_GS/tree/main/nerf_first_model/data/nerfstudio/poster)
+    - Test dataset downloading: original order `ns-download-data nerfstudio --capture-name=poster` is not effective. I've uploaded the dataset to my cloud drive. Click [here](https://cloud.tsinghua.edu.cn/f/25b61d6d5e02483eb1fc/?dl=1) to download.
     - Train model: `ns-train nerfacto --data data/nerfstudio/poster`
     ![Training](./image_note/First_Training.png)
 2. Use pretrained model:
