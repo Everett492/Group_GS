@@ -73,7 +73,7 @@
 
 1. Original paper: [NeRF: Representing Scenes as Neural Radiance Fields for View Synthesis](https://arxiv.org/pdf/2003.08934.pdf)
     - Inrtroduction:
-        - A static scene is represented by a continuous `5D funtion` that outputs the `radiance` emitted in each direction (θ, φ) at each point (x, y, z) in space, and a `density` at each point which acts like a differential opacity controlling how much radiance is accumulated bt a ray passing through (x, y, z).
+        - A static scene is represented by a continuous `5D function` that outputs the `radiance` emitted in each direction (θ, φ) at each point (x, y, z) in space, and a `density` at each point which acts like a differential opacity controlling how much radiance is accumulated by a ray passing through (x, y, z).
         - The 5D funtion is represented by an MLP.
         - Rendering step:
             - March camera rays through the scene to generate a sampled set of 3D points.
@@ -145,7 +145,7 @@
                 [ 0,  0,  1]
 
             `fx` and `fy` are the horizontal and vertical focal lengths of the camera.
-            `cx` and `cy` are the horizontal and vertical offsets of the image origin relative to the camera's center.
+            `cx` and `cy` are the horizontal and vertical offsets of the image origin relative to the camera's light center.
             ```
 
             ```python
@@ -387,7 +387,7 @@
             - `get_image_metrics_and_images(self, outputs: Dict[str, torch.Tensor], batch: Dict[str, torch.Tensor]) -> Tuple[Dict[str, float], Dict[str, torch.Tensor]]`:
 7. Other reference: [NeRF_PyTorch](https://github.com/yenchenlin/nerf-pytorch)
 
-### NeRFactor
+### NeRFacto
 
 1. Pipeline:
 
@@ -395,6 +395,9 @@
 
     - Pose refinement: It is uncommon to have errors in the predicted camera poses (camera poses are generated from images, which may cause loss). The NeRF framework allows to backpropagaet loss gradients to the input pose calculations. The information can be used to optimize and refine the poses.
     - Piecewise sampler: Allocating half of the samples uniformly up to a dsitance of 1 from the camera. The remaining samples aer distibuted such that the step size increases with each sample, which allows to sample distant objects while still having a dense set of samples for near objects.
+
+        ![Piecewise Sampler](./image_note/Nerfacto_Piecewise_Sampler.png)
+
     - Proposal sampler:
         - The proposal sampler consolidates the sample loactions to the regions of the scene that contribute most to the final render (typically the first surface intersection).
         - A density function for the scene is needed. The function can be implemented in many ways, such as using a small fused-mlp with a hash encoding, which has sufficient accuracy and is fas.
