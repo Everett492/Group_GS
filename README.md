@@ -123,8 +123,8 @@
         ![NeRF Loss Function](./image_note/NeRF_Loss_Function.png)
 2. Camera parameters and coordinate system transformations
     - Reference: [Code Interpretation](https://zhuanlan.zhihu.com/p/593204605/)
-    - Internal and external parameters of the camera:
-        - External parameters:
+    - intrinsic and extrinsic parameters of the camera:
+        - Extrinsic parameters:
             - Shape: a 4x4 matrix `M`, or world-to-camera matrix.
             - Useage: Transforms a point `P(world) = [x, y, z, 1]` in the world coordinate system to a point `P(camera) = MP(world)` in the camera coordinate system.
             - `M^(-1)`: c2w matrix:
@@ -136,7 +136,7 @@
                        [  0,   0,   0,  1]
             ```
 
-        - Internal parameters:
+        - intrinsic parameters:
             - Usage: mapping 3D coordinates in the camera's coordinate system to the 2D image plane.
             - Take pinhhole camera as an example:
 
@@ -1375,7 +1375,37 @@ Github repository [here](https://github.com/apchenstu/mvsnerf)
 
 #### Paper Interpretation
 
-
+1. Introduction
+    - Goal: to make neural scene reconstruction and rendering more practical, by enabling highly efficient radiance field estimation.
+    - Few images is needed for new reconstructing a new scene, and is much more efficient than NeRF.
+    - MVSNeRF reconstruct a neural scene encoding volume that consists of pervoxel neural features that encode informatin about the local scene geometry and appearance.
+2. Related Work - Multi-view stereo (pipeline):
+    - collect images
+    - comopute camera parameters for each image
+    - reconstruct the 3D geometry of these scene from the set of iamges and corresponding camera parameters
+    - optinally reconstruct the materials of the scene
+3. Method
+    - Network Atchitecture
+        ![MVSNeRF Architecture](./image_note/MVSNeRF_Architecture.png)
+    - Pipeline:
+        - Construct a cost volume at the reference view by warping 2D image features onto mulyiple sweeping planes.
+        - Then apply 3D CNN to reconstruct a neural encoding volume with per-voxel neural features.
+        - Use an MLP to regeress volume density and RGB radiance at an arbitrary location using deatures interpolated from the encoding volume.
+        - Volume properties are used by differentiable ray marching for final rendering.
+    - The reconstructed encoding volume and the MLP decoder can also be faset fine-tuned independently to further improve the rendering quality.
+    - Cost volume constrcution
+        - What is cost volume: given a pixel x in reference image, at a given depth in the directing it was taken corresponds a voxelm, which is projected to the matching image will hit at the position of a certain pixel xi. The cost of matching, or the degree of similarity, between the x and xi is what is recorded in cost vloume.
+        - Extracting image features: use a deep 2D CNN to extract 2D image featrures at individual input views to effectively extract image appearance.
+        - Warping feature maps to reference view.
+        - Cost volume: The cost volume P is constructed from the warped feature maps on the D sweeping planes. For each voxel in P centered at (u, v, z), its cost volume vector is the variance of the warped features F_i,z_(u, v)
+    - Radiance field reconstruction
+        - Neural encoding volume:
+            - Previous MVS works usually predict depth probabilities dierctly from a cost volume. To achieve high-quality rendering that necessitates inferring more appearance-aware information from the cost volume, a deep 3D CNN to ransform the built image-feature cost volume into a new C-channel neural feature volume was proposed.
+            - The scene encoding volume is of raletive low resolution for downsampling of 2D feature extraction. Therefore, original image pixel data for the following volume regression stage was incorporated. The high-frequency information can also be recovered via fine-tuning.
+        - Regressing volume properties: given an arbitrary 3D loaction x and viewing direction d, use an MLP to regress the corresponding volume density and view-dependent radiance r for the neural encoding volume S. The original pixel color was also considered as input. In total, the MLP is expressed by: `σ, r = MLP(x, d, f, c), f = S(x)`
+        - Once the nerual encoding volume is reconstructed, combining with the MLP decoder, this volume can be used independently.
+    - Volume rendering
+    - Optimizing the neural encoding volume: during fine-tuning, only encoding volume and the MLP is optimized.
 
 #### Run the Model
 
@@ -1383,5 +1413,3 @@ Github repository [here](https://github.com/apchenstu/mvsnerf)
 2. However I downloaded some results by the author:
     ![result1](./image_note/MVSNeRF_result1.gif)
     ![result2](./image_note/MVSNeRF_result2.gif)
-
-#### Code Pipeline
